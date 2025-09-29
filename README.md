@@ -21,6 +21,8 @@ Erik Daxberger, Nina Wenzel, David Griffiths, Haiming Gang, Justin Lazarow, Gefe
 
 **ICCV 2025**
 
+![Teaser (CA-VQA)](teaser_cavqa.png?raw=true "Teaser (CA-VQA)")
+
 ## Repository Overview
 
 This repository includes:
