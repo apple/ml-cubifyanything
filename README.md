@@ -1,9 +1,9 @@
 # CA-1M and Cubify Anything
 
 This repository includes the public implementation of Cubify Transformer and the
-associated CA-1M dataset.
+associated CA-1M dataset (incl. the derived CA-VQA annotations).
 
-## Paper
+## Papers
 
 **Apple**
 
@@ -15,11 +15,17 @@ Justin Lazarow, David Griffiths, Gefen Kohavi, Francisco Crespo, Afshin Dehghan
 
 ![Teaser](teaser.jpg?raw=true "Teaser")
 
+[MM-Spatial: Exploring 3D Spatial Understanding in Multimodal LLMs](https://arxiv.org/abs/2503.13111)
+
+Erik Daxberger, Nina Wenzel, David Griffiths, Haiming Gang, Justin Lazarow, Gefen Kohavi, Kai Kang, Marcin Eichner, Yinfei Yang, Afshin Dehghan, Peter Grasch
+
+**ICCV 2025**
+
 ## Repository Overview
 
 This repository includes:
 
-1. Links to the underlying data and annotations of the CA-1M dataset.
+1. Links to the underlying data and annotations of the CA-1M dataset (incl. the derived CA-VQA annotations).
 2. Links to released models of the Cubify Transformer (CuTR) model from the Cubify Anything paper.
 3. Basic readers and inference code to run CuTR on the provided data.
 4. Basic support for using images captured from own device using the NeRF Capture app.
@@ -58,17 +64,22 @@ Some other nice things:
 **NOTE:** CA-1M will only include captures which were successfully registered to the laser scanner. Therefore
 not every capture including in ARKitScenes will be present in CA-1M.
 
-## Downloading and using the CA-1M data
+## Downloading the CA-1M data
 
-### Data License
+### License
 
-**All data is released under the [CC-by-NC-ND](data/LICENSE_DATA).**
+All data is released under the [CC-by-NC-ND](https://creativecommons.org/licenses/by-nc-nd/4.0/).
 
 All links to the data are contained in `data/train.txt` and `data/val.txt`. You can use `curl` to download all files
 listed. If you don't need the whole dataset in advance, you can either explicitly pass these
-links explicitly or pass the split's `txt` file itself and use the `--video-ids` argument to filter the desired videos.
+links or pass the split's `txt` file itself and use the `--video-ids` argument to filter the desired videos.
 
 If you pass the `txt` file, please note that file will be cached under `data/[split]`.
+
+### CA-VQA
+
+The data links for CA-VQA are contained in `data/cavqa/val.txt` for the `val` split and in `data/cavqa/train_[task].txt` for the `train` splits of each task (`binary`, `cardinality`, `grounding2d`, `grounding3d`, `multichoice`, `regression`). 
+
 
 ## Understanding the CA-1M data
 
@@ -99,9 +110,57 @@ An additional file is included as `[video_id]/world.gt/instances.json` which cor
 the per-frame labels are generated from. These instances include some structural labels: `wall`, `floor`, `ceiling`, `door_frame` which
 might aid in rendering.
 
-## Visualization
+### CA-VQA
 
-We include visualization support using [rerun](https://rerun.io). Visualization should happen
+We provide CA-VQA across the different tasks (`binary`, `cardinality`, `grounding2d`, `grounding3d`, `multichoice`, `regression`) in the format described below.
+
+#### Val split
+The `val` split of CA-VQA can be loaded (after unarchiving) via HuggingFace datasets:
+```python
+import datasets
+cavqa_val = datasets.load_from_disk("[path_to_cavqa_val_dir]")
+```
+
+This will provide a dictionary where each entry is a task's dataset with the following features:
+```python
+id: str                             # Unique ID of the data example.
+question: str                       # The question.
+answer: str                         # The ground truth answer of the question.
+reference_frame: dict               # The frame that the question refers to.
+support_frame_[1-4]: dict           # The preceding frames; order: [4, 3, 2, 1, reference].
+
+# Features of each frame.
+image['path']: str                  # Path to the RGB image (png) within the `images` folder.
+depth_map_ground_truth['path']: str # Path to the ground-truth depth map.
+depth_map_arkit['path']: str        # Path to the ARKit depth map.
+depth_map_monocular['path']: str    # Path to the monocular depth map.
+pose: List[List[float]]             # The pose (relative to the reference).
+intrinsics: List[List[float]]       # The intrinsics.
+```
+
+#### Train split
+The `train` split of each CA-VQA task can be loaded via TFDS:
+```python
+import tensorflow_datasets as tfds
+builder = tfds.builder_from_directory("[path_to_cavqa_train_dir]/[task]/1.0.0")
+cavqa_task_train = builder.as_dataset(split="train")
+```
+
+This will provide a dataset with the following features:
+```python
+questions: Tensor[str]                # The questions (referring to the reference frame).
+answers: Tensor[str]                  # The ground truth answers of the questions.
+images: Tensor[str]                   # The RGB images, with the reference frame coming last.
+depth_maps_ground_truth: Tensor[str]  # The ground-truth depth maps (same frame order as `images`).
+depth_maps_arkit: Tensor[str]         # The ARKit depth maps (same frame order as `images`).
+depth_maps_monocular: Tensor[str]     # The monocular depth maps (same frame order as `images`).
+poses: Tensor[float]                  # The poses (same frame order as `images`).
+intrinsics: Tensor[float]             # The intrinsics (same frame order as `images`).
+```
+
+## Visualization of the CA-1M data
+
+We include visualization support for CA-1M using [rerun](https://rerun.io). Visualization should happen
 automatically. If you wish to not run any models, but only visualize the data, use `--viz-only`.
 
 During inference, you may wish to inspect the 3D accuracy of the predictions. We support
@@ -125,7 +184,7 @@ process every N frames.
 
 ## Running the CuTR models
 
-**All models are released under the Apple ML Research Model Terms of Use in [LICENSE_MODEL](LICENSE_MODEL).**
+All models are released under the Apple ML Research Model Terms of Use in [LICENSE_MODEL](LICENSE_MODEL).
 
 1. [RGB-D](https://ml-site.cdn-apple.com/models/cutr/cutr_rgbd.pth)
 2. [RGB](https://ml-site.cdn-apple.com/models/cutr/cutr_rgb.pth)
@@ -197,7 +256,7 @@ python tools/demo.py stream --model-path [path_to_models]/cutr_rgbd.pth --device
 python tools/demo.py stream --model-path [path_to_models]/cutr_rgb.pth --device mps
 ```
 
-## Citation
+## Citations
 
 If you use CA-1M or CuTR in your research, please use the following entry:
 
@@ -210,13 +269,22 @@ If you use CA-1M or CuTR in your research, please use the following entry:
 }
 ```
 
-## Licenses
+If you use CA-VQA in your research, please use the following entry:
 
-The sample code is released under [Apple Sample Code License](LICENSE).
+```
+@article{daxberger2025mmspatial,
+  title={MM-Spatial: Exploring 3D Spatial Understanding in Multimodal LLMs},
+  author={Daxberger, Erik and Wenzel, Nina and Griffiths, David and Gang, Haiming and Lazarow, Justin and Kohavi, Gefen and Kang, Kai and Eichner, Marcin and Yang, Yinfei and Dehghan, Afshin and Grasch, Peter},
+  journal={arXiv preprint arXiv:2503.13111},
+  year={2025}
+}
+```
 
-The data is released under [CC-by-NC-ND](data/LICENSE_DATA).
+## License
 
-The models are released under [Apple ML Research Model Terms of Use](LICENSE_MODEL).
+The sample code is released under Apple Sample Code License.
+
+The data is released under [CC-by-NC-ND](https://creativecommons.org/licenses/by-nc-nd/4.0/).
 
 ## Acknowledgements
 
